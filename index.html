@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ml">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIT Robot Controller</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 { color: #00ffcc; font-size: 22px; margin-bottom: 5px; }
+        p { color: #888; font-size: 14px; margin-top: 0; }
+        .card {
+            background: #1e1e1e;
+            padding: 15px;
+            margin: 15px auto;
+            border-radius: 12px;
+            max-width: 350px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+        }
+        .card h3 {
+            font-size: 16px;
+            color: #ccc;
+            margin-bottom: 12px;
+        }
+        /* സ്വിച്ച് ബട്ടൺ സ്റ്റൈൽ (ഉള്ളിൽ എഴുത്തുകൾ ഇല്ല, ആരോ മാർക്കുകൾ മാത്രം) */
+        .btn {
+            background-color: #2b2b2b;
+            color: #00ffcc;
+            border: 2px solid #444;
+            width: 70px;
+            height: 70px;
+            margin: 6px;
+            font-size: 28px;
+            border-radius: 12px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: 0.1s;
+        }
+        .btn:active {
+            background-color: #00ffcc;
+            color: #000;
+            transform: scale(0.92);
+        }
+        .stop-btn {
+            background-color: #331111;
+            color: #ff4444;
+            border-color: #552222;
+            font-size: 14px;
+            font-weight: bold;
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+        }
+        .stop-btn:active {
+            background-color: #ff4444;
+            color: #fff;
+        }
+        .mode-btn {
+            background-color: #ff9900;
+            color: #000;
+            border: none;
+            width: 100%;
+            padding: 12px;
+            margin: 6px 0;
+            font-size: 15px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .mode-btn:active {
+            background-color: #cc7a00;
+        }
+        .row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>AIT Robot Controller</h1>
+    <p>ESP IP: 10.130.105.120</p>
+
+    <!-- മോഡ് സെലക്ഷൻ -->
+    <div class="card">
+        <h3>മോഡുകൾ</h3>
+        <button class="mode-btn" onclick="playBeep(); sendCommand('M')">മാനുവൽ മോഡ്</button>
+        <button class="mode-btn" onclick="playBeep(); sendCommand('O')">ഫോളോയിങ് മോഡ്</button>
+        <button class="mode-btn" onclick="playBeep(); sendCommand('C')">കാൻവാസ് മോഡ്</button>
+    </div>
+
+    <!-- റിമോട്ട് കൺട്രോൾ (ആരോ സ്വിച്ചുകൾ മാത്രം) -->
+    <div class="card">
+        <h3>റിമോട്ട്</h3>
+        <div>
+            <button class="btn" onclick="playBeep(); sendCommand('F')">⬆️</button>
+        </div>
+        <div>
+            <button class="btn" onclick="playBeep(); sendCommand('L')">⬅️</button>
+            <button class="stop-btn" onclick="playBeep(); sendCommand('S')">STOP</button>
+            <button class="btn" onclick="playBeep(); sendCommand('R')">➡️</button>
+        </div>
+        <div>
+            <button class="btn" onclick="playBeep(); sendCommand('B')">⬇️</button>
+        </div>
+    </div>
+
+    <!-- സർവോ ഹെഡ് കൺട്രോൾ -->
+    <div class="card">
+        <h3>തല (Servo Head)</h3>
+        <div>
+            <button class="btn" style="font-size: 20px; width: 85px;" onclick="playBeep(); sendCommand('Y')">◀️</button>
+            <button class="btn" style="font-size: 20px; width: 85px;" onclick="playBeep(); sendCommand('H')">⏺️</button>
+            <button class="btn" style="font-size: 20px; width: 85px;" onclick="playBeep(); sendCommand('X')">▶️</button>
+        </div>
+    </div>
+
+    <script>
+        const espIp = "10.130.105.120";
+
+        // ബട്ടൺ അമർത്തുമ്പോൾ കേൾക്കുന്ന ചെറിയ ബീപ് സൗണ്ട്
+        function playBeep() {
+            try {
+                let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                let oscillator = audioCtx.createOscillator();
+                let gainNode = audioCtx.createGain();
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(700, audioCtx.currentTime);
+                gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.06);
+            } catch(e) { console.log(e); }
+        }
+
+        // ESP-01-ലേക്ക് കമാൻഡ് അയക്കുന്ന ഫങ്ഷൻ
+        function sendCommand(cmd) {
+            let url = `http://${espIp}/?cmd=${cmd}`;
+            fetch(url, { mode: 'no-cors' })
+                .then(response => console.log("Sent: " + cmd))
+                .catch(err => console.error("Error:", err));
+        }
+    </script>
+</body>
+</html>
