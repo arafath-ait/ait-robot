@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ml">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIT Smart Robot Controller</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            text-align: center;
+            margin: 0;
+            padding: 15px;
+        }
+        h1 { color: #00ffcc; font-size: 24px; }
+        .card {
+            background: #1e1e1e;
+            padding: 15px;
+            margin: 15px auto;
+            border-radius: 10px;
+            max-width: 400px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+        button {
+            background-color: #00ffcc;
+            color: #000;
+            border: none;
+            padding: 12px 20px;
+            margin: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        button:active { background-color: #00b386; transform: scale(0.95); }
+        .mode-btn { background-color: #ff9900; color: #fff; }
+        .stop-btn { background-color: #ff3333; color: #fff; }
+        .voice-btn { background-color: #3399ff; color: #fff; }
+        
+        /* Canvas Styling */
+        canvas {
+            background-color: #fff;
+            border-radius: 5px;
+            cursor: crosshair;
+            touch-action: none;
+            margin-bottom: 10px;
+        }
+        .canvas-btn { background-color: #9900ff; color: #fff; padding: 8px 15px; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <h1>AIT Robot Controller</h1>
+    <p>ESP IP: <span id="ipDisplay">10.130.105.120</span></p>
+
+    <!-- മോഡ് സെലക്ഷൻ കാർഡ് -->
+    <div class="card">
+        <h3>മോഡുകൾ തിരഞ്ഞെടുക്കുക</h3>
+        <button class="mode-btn" onclick="playBeep(); sendCommand('M')">മാനുവൽ മോഡ്</button>
+        <button class="mode-btn" onclick="playBeep(); sendCommand('O')">ഫോളോയിങ് മോഡ്</button>
+        <button class="mode-btn" onclick="playBeep(); toggleCanvas()">കാൻവാസ് മോഡ്</button>
+    </div>
+
+    <!-- കാൻവാസ് / പാത്ത് ഡ്രോയിങ് സെക്ഷൻ (ആദ്യം മറച്ചുവെച്ചിരിക്കുന്നു) -->
+    <div class="card" id="canvasCard" style="display: none;">
+        <h3>പാത്ത് വരയ്ക്കുക (Canvas)</h3>
+        <canvas id="drawCanvas" width="280" height="150"></canvas><br>
+        <button class="canvas-btn" onclick="playBeep(); clearCanvas()">ക്ലിയർ (Clear)</button>
+        <button class="canvas-btn" style="background-color: #00cc66;" onclick="playBeep(); sendCanvasPath()">ശരി (Submit)</button>
+    </div>
+
+    <!-- റിമോട്ട് കൺട്രോൾ കാർഡ് -->
+    <div class="card">
+        <h3>റിമോട്ട് കൺട്രോൾ</h3>
+        <button onclick="playBeep(); sendCommand('F')">മുന്നോട്ട് (Forward)</button><br>
+        <button onclick="playBeep(); sendCommand('L')">ഇടത്തേക്ക് (Left)</button>
+        <button class="stop-btn" onclick="playBeep(); sendCommand('S')">നിൽക്കൂ (STOP)</button>
+        <button onclick="playBeep(); sendCommand('R')">വലത്തേക്ക് (Right)</button><br>
+        <button onclick="playBeep(); sendCommand('B')">പിന്നോട്ട് (Backward)</button>
+    </div>
+
+    <!-- സർവോ ഹെഡ് കൺട്രോൾ കാർഡ് -->
+    <div class="card">
+        <h3>തല കൺട്രോൾ (Servo Head)</h3>
+        <button onclick="playBeep(); sendCommand('X')">വലത്തേക്ക് നോക്കൂ</button>
+        <button onclick="playBeep(); sendCommand('H')">നേരെ നോക്കൂ</button>
+        <button onclick="playBeep(); sendCommand('Y')">ഇടത്തേക്ക് നോക്കൂ</button>
+    </div>
+
+    <!-- മലയാളം വോയ്സ് കമാൻഡ് കാർഡ് -->
+    <div class="card">
+        <h3>മലയാളം വോയ്സ് കമാൻഡ്</h3>
+        <button class="voice-btn" onclick="playBeep(); startVoiceRecognition()">🎤 മലയാളത്തിൽ സംസാരിക്കൂ</button>
+        <p id="voiceResult" style="margin-top: 10px; color: #00ffcc; font-size: 14px;"></p>
+    </div>
+
+    <script>
+        const espIp = "10.130.105.120";
+
+        // ബട്ടൺ ഞെക്കുമ്പോൾ ബീപ് സൗണ്ട് ഉണ്ടാക്കാൻ (Web Audio API)
+        function playBeep() {
+            try {
+                let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                let oscillator = audioCtx.createOscillator();
+                let gainNode = audioCtx.createGain();
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(800, audioCtx.currentTime); // ഫ്രീക്വൻസി
+                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.08); // 0.08 സെക്കൻഡ് സൗണ്ട്
+            } catch(e) { console.log(e); }
+        }
+
+        function sendCommand(cmd) {
+            let url = `http://${espIp}/?cmd=${cmd}`;
+            fetch(url, { mode: 'no-cors' })
+                .then(response => console.log("Command sent: " + cmd))
+                .catch(err => console.error("Error:", err));
+        }
+
+        // മലയാളം സ്പീച്ച് ടു ടെക്സ്റ്റ് (Voice Recognition)
+        function startVoiceRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                alert("നിങ്ങളുടെ ബ്രൗസർ വോയ്സ് റെക്കഗ്നിഷൻ സപ്പോർട്ട് ചെയ്യുന്നില്ല.");
+                return;
+            }
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'ml-IN'; // മലയാളം ലാംഗ്വേജ് സെറ്റ് ചെയ്തിരിക്കുന്നു
+            recognition.start();
+
+            document.getElementById("voiceResult").innerText = "കേൾക്കുന്നുണ്ട്... സംസാരിക്കൂ...";
+
+            recognition.onresult = function(event) {
+                let speechText = event.results[0][0].transcript.trim();
+                document.getElementById("voiceResult").innerText = "നിങ്ങൾ പറഞ്ഞത്: " + speechText;
+
+                // മലയാളം കമാൻഡുകൾ പരിശോധിക്കുന്നു
+                if (speechText.includes("മുന്നോട്ട്") || speechText.includes("munnott")) {
+                    sendCommand('F');
+                } else if (speechText.includes("പിന്നോട്ട്") || speechText.includes("pinott")) {
+                    sendCommand('B');
+                } else if (speechText.includes("നിൽക്കൂ") || speechText.includes("നിൽക്ക്") || speechText.includes("nilkku")) {
+                    sendCommand('S');
+                } else if (speechText.includes("ഇടത്തേക്ക്") || speechText.includes("idathu")) {
+                    sendCommand('L');
+                } else if (speechText.includes("വലത്തേക്ക്") || speechText.includes("valathu")) {
+                    sendCommand('R');
+                }
+            };
+
+            recognition.onerror = function(event) {
+                document.getElementById("voiceResult").innerText = "ശബ്ദം മനസ്സിലായില്ല, വീണ്ടും ശ്രമിക്കുക.";
+            };
+        }
+
+        // കാൻവാസ് ടോഗിൾ ചെയ്യൽ
+        function toggleCanvas() {
+            let card = document.getElementById("canvasCard");
+            if (card.style.display === "none") {
+                card.style.display = "block";
+                sendCommand('C'); // കാൻവാസ് മോഡ് ആക്ടീവ് ആകാൻ
+            } else {
+                card.style.display = "none";
+            }
+        }
+
+        // കാൻവാസ് ഡ്രോയിങ് സെറ്റപ്പ്
+        const canvas = document.getElementById("drawCanvas");
+        const ctx = canvas.getContext("2d");
+        let painting = false;
+
+        function startPosition(e) { painting = true; draw(e); }
+        function endPosition() { painting = false; ctx.beginPath(); }
+        function draw(e) {
+            if (!painting) return;
+            ctx.lineWidth = 4;
+            ctx.lineCap = "round";
+            ctx.strokeStyle = "#000";
+
+            // ടച്ച് അല്ലെങ്കിൽ മൗസ് പൊസിഷൻ
+            let rect = canvas.getBoundingClientRect();
+            let x = (e.clientX || e.touches[0].clientX) - rect.left;
+            let y = (e.clientY || e.touches[0].clientY) - rect.top;
+
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        }
+
+        canvas.addEventListener("mousedown", startPosition);
+        canvas.addEventListener("mouseup", endPosition);
+        canvas.addEventListener("mousemove", draw);
+
+        canvas.addEventListener("touchstart", startPosition);
+        canvas.addEventListener("touchend", endPosition);
+        canvas.addEventListener("touchmove", draw);
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function sendCanvasPath() {
+            alert("പാത്ത് റോബോട്ടിലേക്ക് അയച്ചു!");
+            sendCommand('C');
+        }
+    </script>
+</body>
+</html>
